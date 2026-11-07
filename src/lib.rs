@@ -75,6 +75,14 @@ impl Leash {
         if now >= self.window_start_ms + WINDOW_MS { return self.cap_per_window; }
         NearToken::from_yoctonear(self.cap_per_window.as_yoctonear().saturating_sub(self.spent_in_window.as_yoctonear()))
     }
+    /// Dry run: returns the reason the policy would reject this spend, or None if it would pass.
+    /// Agents call this (free view) before signing, so they never waste gas on a refused payment.
+    pub fn check_spend(&self, to: AccountId, amount: NearToken) -> Option<String> {
+        if self.frozen { return Some("frozen by owner".into()); }
+        if !self.allowed.contains(&to) { return Some("recipient not allowlisted".into()); }
+        if amount.as_yoctonear() > self.remaining_today().as_yoctonear() { return Some("window cap exceeded".into()); }
+        None
+    }
     pub fn is_frozen(&self) -> bool { self.frozen }
     pub fn log_entry(&self, i: u64) -> Option<String> { self.log.get(&i).cloned() }
     pub fn log_count(&self) -> u64 { self.log_len }

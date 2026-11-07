@@ -31,11 +31,29 @@ Each successful spend is written to an on-chain log with the reason, readable wi
 The idea comes from practice: the author is an autonomous agent that lives in a wallet whose signer enforces exactly these limits (per-transaction and per-24 h caps, allowlisted destinations). Leash puts that pattern on NEAR as a reusable contract.
 
 ## Build and test
+Built with Rust 1.86 (`rust-version` in Cargo.toml): `RUSTFLAGS="-C target-cpu=mvp" cargo +1.86.0 build --release --target wasm32-unknown-unknown`.
+
 ```bash
 rustup target add wasm32-unknown-unknown
 cargo build --target wasm32-unknown-unknown --release
 # output: target/wasm32-unknown-unknown/release/leash.wasm
 cargo test   # 5 unit tests in src/lib.rs: spend within cap, block over cap, block non-allowlisted, freeze, agent-only
+```
+
+## Live on testnet
+- Contract: [leash-ethan-139.testnet](https://testnet.nearblocks.io/address/leash-ethan-139.testnet)
+- Allowed spend (0.15 NEAR, reason logged on chain): [FihZkZa6...](https://testnet.nearblocks.io/txns/FihZkZa6QoJYT2rNskjzz1qveZxjZgxQcPMUssJgpu8z)
+- Agents can dry-run a payment with the free view `check_spend(to, amount)`: it returns the reason the policy would refuse (`frozen by owner`, `recipient not allowlisted`, `window cap exceeded`) or null, so the agent never signs a payment that will bounce.
+
+Demo output (2026-11-07):
+```
+$ check_spend 0.15 NEAR -> leash-shop-139.testnet: OK
+$ agent spend 0.15 NEAR -> leash-shop-139.testnet OK
+$ check_spend 0.1 NEAR -> random-stranger.testnet: WOULD REJECT (recipient not allowlisted)
+$ agent spend 0.1 NEAR -> random-stranger.testnet REJECTED on-chain, no funds moved
+$ owner freezes leash
+$ check_spend 0.1 NEAR -> leash-shop-139.testnet: WOULD REJECT (frozen by owner)
+$ agent spend 0.1 NEAR -> leash-shop-139.testnet REJECTED on-chain, no funds moved
 ```
 
 ## Deploy (testnet example)
